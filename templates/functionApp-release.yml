@@ -1,0 +1,60 @@
+parameters:
+    - name: environmentName
+      type: string
+    - name: agentImage
+      type: string
+      default: windows-2019
+    - name: functionAppName
+      type: string
+    - name: azureSubscription
+      type: string
+    - name: resourceGroupName
+      type: string
+    - name: location
+      type: string
+    - name: armTemplate
+      type: string
+    - name: deploymentMode
+      type: string
+      default: Complete
+      values:
+          - Complete
+          - Incremental
+
+stages:
+  - stage: Release_${{ parameters.environmentName }}
+    condition: succeeded()
+    jobs:
+      - deployment: ${{ parameters.environmentName }}
+        environment: ${{ parameters.environmentName }}
+        pool:
+          vmImage: ${{ parameters.agentImage }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+              - task: AzureResourceGroupDeployment@2
+                enabled: true
+                condition: succeeded()
+                displayName: ARM Deployment
+                inputs:
+                  azureSubscription: ${{ parameters.azureSubscription }}
+                  action: Create Or Update Resource Group
+                  resourceGroupName: ${{ parameters.resourceGroupName }}
+                  location: ${{ parameters.location }}
+                  templateLocation: Linked artifact
+                  csmFile: $(Pipeline.Workspace)/${{ parameters.armTemplate }}
+                  deploymentMode: ${{ parameters.deploymentMode }}
+  
+              - task: AzureFunctionApp@1
+                condition: succeeded()
+                displayName: Deploy Azure Function App
+                inputs:
+                  azureSubscription: ${{ parameters.azureSubscription }}
+                  resourceGroupName: $(resourceGroupName)
+                  appType: functionApp
+                  appName: ${{ parameters.functionAppName }}
+                  package: $(Pipeline.Workspace)/**/*.zip
+                  deploymentMethod: zipDeploy
+              #     deployToSlotOrASE: true
+              #     slotName: stage

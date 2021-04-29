@@ -1,0 +1,123 @@
+parameters:
+  - name: azureSubscription
+    type: string
+  - name: storageAccountResourceId
+    type: string
+  - name: storageAccountQueue
+    type: string
+
+stages:
+  - stage: streamLogs
+    condition: always()
+    jobs:
+    - job: streamLogs
+      pool:
+        vmImage: windows-2019
+      steps:
+      - task: AzurePowerShell@4
+        condition: succeeded()
+        displayName:  Add Pipeline Context to Queue
+        inputs:
+          azureSubscription: ${{ parameters.azureSubscription }}
+          scriptType: inlineScript
+          inline: |
+            function Parse-ResourceId
+            {
+                [CmdletBinding()]
+                param
+                (
+                    [Parameter(valueFromPipeline = $true, mandatory = $true)]
+                    [ValidatePattern("(/\w+/)([a-fA-F\d]{8}-([a-fA-F\d]{4}-){3}[a-fA-F\d]{12})(/\w+/)([\d\w-_]+)(/\w+/)([\w+.]+)([/\w+/)([\d\w-_]+)")]
+                    [string]$resourceId
+                )
+            
+                try
+                {
+                    $resourceId = $resourceId.ToLower();
+                    $resourceHash = @{};
+            
+                    # subscriptionId
+                    $subscriptionId = [regex]::Match($resourceId, "[a-fA-F\d]{8}-([a-fA-F\d]{4}-){3}[a-fA-F\d]{12}").value;
+                    $resourceHash.Add("subscriptionId", $subscriptionId);
+            
+                    # resource group
+                    $resourceGroup = [regex]::Match($resourceId, "resourcegroups/([\d\w-_]+)").value.replace("resourcegroups/", "");
+                    $resourceHash.Add("resourceGroup", $resourceGroup);
+            
+                    # parent resource
+                    $resourceValue = [regex]::Match($resourceid, "providers/([\w+.]+)(/\w+/)([\w-_]+)").value;
+                    $resourceValue = [regex]::Replace($resourceValue, "providers/([\w+.]+)(/\w+/)", "");
+                    $resourceProvider = [regex]::Match($resourceid, "providers/([\w+.]+)(/\w+/)([\w-_]+)").value;
+                    $resourceProvider = [regex]::Replace($resourceProvider, "providers/([\w+.]+)/", "");
+                    $resourceProvider = $resourceProvider.Substring(0, $resourceProvider.IndexOf("/"));
+                    $resourceHash.Add($resourceProvider, $resourceValue);
+            
+                    # recurse child resources
+                    $childResources = $resourceid.Substring($resourceid.IndexOf($resourceValue)).Replace("$resourceValue/", "");
+                    if ([regex]::Match($childResources, "/").success -eq $true)
+                    {
+                        do 
+                        {
+                            $match = [regex]::Match($childResources, "/");
+                
+                            $childResourceProvider = [regex]::Match($childResources, "([\w+-]+)/").value;
+                            $childResourceProviderValue = $childResources.Replace($childResourceProvider, "");
+                            $childresources = $childResourceProviderValue.Substring($childResourceProviderValue.IndexOf("/") + 1);
+                
+                            if ([regex]::Match($childResourceProviderValue, "/").success -eq $true)
+                            {
+                                $childResourceProviderValue = $childResourceProviderValue.Substring(0, $childResourceProviderValue.IndexOf("/"));
+                            }
+                
+                            $resourceHash.Add($childResourceProvider.replace("/", ""), $childResourceProviderValue);
+                
+                            if ([regex]::Match($childResources, "/").success -eq $false)
+                            {
+                                break;
+                            }
+                        }
+                        while ($match.success -eq $true)
+                    }
+                }
+                catch [exception]
+                {
+                    Write-Error -Message "Error parsing the resourceId! $($_.exception)";
+                }
+            
+                return $resourceHash;
+            }
+  
+            # get current pipeline run context
+            $hash = @{};
+            $hash.add("definitionId", "$(System.DefinitionId)");
+            $hash.add("runId", "$(Build.BuildId)");
+            $json = $hash | ConvertTo-Json -Depth 10 -Compress;
+  
+            # parse storage resourceId
+            $sa = Parse-ResourceId -resourceId "${{ parameters.storageAccountResourceId }}";
+            $sa = Get-AzStorageAccount -ResourceGroupName $sa.resourceGroup -Name $sa.storageaccounts;
+            $saKey = $($sa | Get-AzStorageAccountKey).Value[0];
+  
+            # storage queue
+            try
+            {
+                $ctx = New-AzStorageContext -StorageAccountName $sa.storageAccountName -StorageAccountKey $saKey;
+                $queue = Get-AzStorageQueue –Name "${{ parameters.storageAccountQueue }}" –Context $ctx;
+            }
+            catch [exception]
+            {
+                throw "Failed to get storage account queue. $($_)";
+            }
+  
+            # put message on queue
+            try
+            {
+                $message = [Microsoft.Azure.Storage.Queue.CloudQueueMessage]::new($json);
+                $queue.CloudQueue.AddMessageAsync($message);
+            }
+            catch [exception]
+            {
+                throw "Failed to put message on queue. $($_)";
+            }
+          errorActionPreference: stop
+          azurePowerShellVersion: latestVersion

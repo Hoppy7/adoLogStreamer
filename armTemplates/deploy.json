@@ -1,0 +1,289 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appName": {
+            "type": "string",
+            "defaultValue": "adoLogStreamer",
+            "maxLength": 21,
+            "metadata": {
+                "description": "The name of the function app"
+            }
+        },
+        "aspSku": {
+            "type": "string",
+            "defaultValue": "Y1",
+            "metadata": {
+                "description": "The sku of the app service plan"
+            }
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "adologstreamerstg1",
+            "metadata": {
+                "description": "The name of the storage account used by the function app"
+            }
+        },
+        "blobContainerName": {
+            "type": "string",
+            "defaultValue": "pipelinerunlogs",
+            "metadata": {
+                "description": "The name of the blob container used to output pipeline run logs"
+            }
+        },
+        "queueName": {
+            "type": "string",
+            "defaultValue": "pipelineruns",
+            "metadata": {
+                "description": "The name of the storage queue for the function's trigger"
+            }
+        },
+        "adoPatKeyvaultSecretUri": {
+            "type": "string",
+            "defaultValue": "https://kv-rohopkin.vault.azure.net/secrets/adoLogStreamerPat/"
+        }
+    },
+    "variables": {
+        "apiVersions": {
+            "deployments": "2017-05-10",
+            "insights": "2015-05-01",
+            "network": "2020-05-01",
+            "storage": "2021-01-01",
+            "web": "2019-08-01",
+            "webAppSettings": "2020-09-01"
+        },
+        "prefixes": {
+            "appServicePlan": "asp-",
+            "insights": "apn-"
+        },
+        "dnsSuffix": ".azurewebsites.net",
+        "storageSku": {
+            "name": "Standard_RAGRS",
+            "tier": "Standard"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[parameters('storageAccountName')]",
+            "apiVersion": "[variables('apiVersions').storage]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "[variables('storageSku').name]",
+                "tier": "[variables('storageSku').tier]"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": true,
+                "allowSharedKeyAccess": true,
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                },
+                "supportsHttpsTrafficOnly": true,
+                "encryption": {
+                    "services": {
+                        "file": {
+                            "keyType": "Account",
+                            "enabled": true
+                        },
+                        "blob": {
+                            "keyType": "Account",
+                            "enabled": true
+                        }
+                    },
+                    "keySource": "Microsoft.Storage"
+                },
+                "accessTier": "Hot"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/blobServices",
+            "name": "[concat(parameters('storageAccountName'), '/default')]",
+            "apiVersion": "[variables('apiVersions').storage]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "sku": {
+                "name": "[variables('storageSku').name]",
+                "tier": "[variables('storageSku').tier]"
+            },
+            "properties": {
+                "changeFeed": {
+                    "enabled": false
+                },
+                "restorePolicy": {
+                    "enabled": false
+                },
+                "cors": {
+                    "corsRules": []
+                },
+                "deleteRetentionPolicy": {
+                    "enabled": true,
+                    "days": 7
+                },
+                "isVersioningEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/queueServices",
+            "apiVersion": "[variables('apiVersions').storage]",
+            "name": "[concat(parameters('storageAccountName'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "properties": {
+                "cors": {
+                    "corsRules": []
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/tableServices",
+            "apiVersion": "[variables('apiVersions').storage]",
+            "name": "[concat(parameters('storageAccountName'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "properties": {
+                "cors": {
+                    "corsRules": []
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+            "apiVersion": "[variables('apiVersions').storage]",
+            "name": "[concat(parameters('storageAccountName'), '/default/azure-webjobs-hosts')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "properties": {
+                "defaultEncryptionScope": "$account-encryption-key",
+                "denyEncryptionScopeOverride": false,
+                "publicAccess": "None"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+            "apiVersion": "[variables('apiVersions').storage]",
+            "name": "[concat(parameters('storageAccountName'), '/default/', parameters('blobContainerName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "properties": {
+                "defaultEncryptionScope": "$account-encryption-key",
+                "denyEncryptionScopeOverride": false,
+                "publicAccess": "None"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/queueServices/queues",
+            "apiVersion": "[variables('apiVersions').storage]",
+            "name": "[concat(parameters('storageAccountName'), '/default/', parameters('queueName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/queueServices', parameters('storageAccountName'), 'default')]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "properties": {
+                "metadata": {}
+            }
+        },
+        {
+            "type": "Microsoft.Insights/components",
+            "name": "[concat(variables('prefixes').insights, parameters('appName'))]",
+            "apiVersion": "[variables('apiVersions').insights]",
+            "location": "[resourceGroup().location]",
+            "kind": "web",
+            "properties": {
+                "Application_Type": "web",
+                "Flow_Type": "Bluefield"
+            }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "name": "[concat(variables('prefixes').appServicePlan, parameters('appName'))]",
+            "apiVersion": "[variables('apiVersions').web]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "[parameters('aspSku')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "name": "[parameters('appName')]",
+            "apiVersion": "[variables('apiVersions').web]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', concat(variables('prefixes').appServicePlan, parameters('appName')))]"
+            ],
+            "kind": "functionapp",
+            "properties": {
+                "enabled": true,
+                "hostNameSslStates": [
+                    {
+                        "name": "[concat(parameters('appName'), variables('dnsSuffix'))]",
+                        "sslState": "Disabled",
+                        "hostType": "Standard"
+                    },
+                    {
+                        "name": "[concat(parameters('appName'), '.scm', variables('dnsSuffix'))]",
+                        "sslState": "Disabled",
+                        "hostType": "Repository"
+                    }
+                ],
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', concat(variables('prefixes').appServicePlan, parameters('appName')))]",
+                "siteConfig": {},
+                "reserved": false,
+                "scmSiteAlsoStopped": false,
+                "clientAffinityEnabled": false,
+                "clientCertEnabled": false,
+                "hostNamesDisabled": false,
+                "httpsOnly": false
+            },
+            "identity": {
+                "type": "systemAssigned"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/hostNameBindings",
+            "name": "[concat(parameters('appName'), '/', parameters('appName'), variables('dnsSuffix'))]",
+            "apiVersion": "[variables('apiVersions').web]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('appName'))]"
+            ],
+            "properties": {
+                "siteName": "[parameters('appName')]",
+                "hostNameType": "Verified"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/config",
+            "name": "[concat(parameters('appName'), '/appSettings')]",
+            "apiVersion": "[variables('apiVersions').webAppSettings]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('appName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts/queueServices/queues', parameters('storageAccountName'), 'default', parameters('queueName'))]"
+            ],
+            "properties": {
+                "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(resourceId('Microsoft.Insights/components', concat(variables('prefixes').insights, parameters('appName'))), variables('apiVersions').insights).InstrumentationKey]",
+                "FUNCTIONS_EXTENSION_VERSION": "~3",
+                "FUNCTIONS_WORKER_RUNTIME_VERSION": "~7",
+                "FUNCTIONS_WORKER_RUNTIME": "powershell",
+                "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(parameters('storageAccountName'), '2019-04-01').keys[0].value, ';EndpointSuffix=core.windows.net')]",
+                "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(parameters('storageAccountName'), '2019-04-01').keys[0].value, ';EndpointSuffix=core.windows.net')]",
+                "WEBSITE_CONTENTSHARE": "[tolower(concat(parameters('appName'), 'contentshare'))]",
+                "logOutputContainer": "pipelinerunlogs",
+                "azureDevOpsOrg": "Hoppy7",
+                "azureDevOpsProject": "Azure",
+                "azureDevOpsPat": "[concat('@Microsoft.KeyVault(SecretUri=', parameters('adoPatKeyvaultSecretUri'), ')')]"
+            }
+        }
+    ]
+}

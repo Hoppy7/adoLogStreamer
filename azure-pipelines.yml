@@ -1,0 +1,69 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: 
+  batch: false
+  branches: 
+    include:
+      - main
+  paths:
+    include:
+      - "*"
+
+variables:
+  agentImage: windows-2019
+
+  armTemplate: drop/armTemplates/deploy.json
+  azureSubscription: RossHopkinsIC
+  resourceGroupName: rg-ado-logstreamer
+  location: westus2
+  functionAppName: adoLogStreamer
+
+  # used by streamLogs template
+  storageAccountResourceId: /subscriptions/0aba2ef8-fd83-4066-abf0-8f5be9c9ad8c/resourceGroups/RG-ADO-LogStreamer/providers/Microsoft.Storage/storageAccounts/adologstreamerstg1
+  storageAccountQueue: pipelineruns
+
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+    workspace:
+      clean: all
+    pool:
+      vmImage: windows-2019
+    steps:
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: $(Build.SourcesDirectory)
+        includeRootFolder: false 
+        archiveType: zip
+        archiveFile: $(Build.ArtifactStagingDirectory)\adoLogStreamer.zip
+        replaceExistingArchive: true
+
+    - task: CopyFiles@2
+      condition: succeeded()
+      displayName: Copy Files to ArtifactStagingDirectory
+      inputs:
+        sourceFolder: $(Build.SourcesDirectory)
+        contents: '**'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - task: PublishBuildArtifacts@1
+      condition: succeeded()
+      displayName: 'Publish Artifact'
+
+- template: templates/functionApp-release.yml
+  parameters:
+    environmentName: FunctionApp
+    agentImage: $(agentImage)
+    functionAppName: $(functionAppName)
+    azureSubscription: $(azureSubscription)
+    resourceGroupName: $(resourceGroupName)
+    location: $(location)
+    armTemplate: $(armTemplate)
+    deploymentMode: Complete
+
+- template: templates/streamLogs.yml
+  parameters:
+    azureSubscription: $(azureSubscription)
+    storageAccountResourceId: $(storageAccountResourceId)
+    storageAccountQueue: $(storageAccountQueue)
