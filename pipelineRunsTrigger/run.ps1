@@ -15,7 +15,7 @@ try
     $listResponse = Invoke-WebRequest -Uri $listLogsUri -Method GET -Headers $headers -SkipHttpErrorCheck;
     $logs = $listResponse.Content | ConvertFrom-Json;
 }
-catch [web.exception]
+catch [exception]
 {
     throw "Failed to list the pipeline run logs.  $($_)";
 }
