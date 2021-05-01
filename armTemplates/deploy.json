@@ -38,16 +38,32 @@
                 "description": "The name of the storage queue for the function's trigger"
             }
         },
+        "azureDevOpsOrg": {
+            "type": "string",
+            "defaultValue": "Hoppy7",
+            "metadata": {
+                "description": "The name of the Azure DevOps organization"
+            }
+        },
+        "azureDevOpsProject": {
+            "type": "string",
+            "defaultValue": "Azure",
+            "metadata": {
+                "description": "The name of the Azure DevOps project"
+            }
+        },
         "adoPatKeyvaultSecretUri": {
             "type": "string",
-            "defaultValue": "https://kv-rohopkin.vault.azure.net/secrets/adoLogStreamerPat/"
+            "defaultValue": "https://kv-rohopkin.vault.azure.net/secrets/adoLogStreamerPat/",
+            "metadata": {
+                "description": "The key vault secret uri containing the Azure DevOps PAT"
+            }
         }
     },
     "variables": {
         "apiVersions": {
             "deployments": "2017-05-10",
             "insights": "2015-05-01",
-            "network": "2020-05-01",
             "storage": "2021-01-01",
             "web": "2019-08-01",
             "webAppSettings": "2020-09-01"
@@ -244,7 +260,7 @@
                 "clientAffinityEnabled": false,
                 "clientCertEnabled": false,
                 "hostNamesDisabled": false,
-                "httpsOnly": false
+                "httpsOnly": true
             },
             "identity": {
                 "type": "systemAssigned"
@@ -279,9 +295,9 @@
                 "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(parameters('storageAccountName'), '2019-04-01').keys[0].value, ';EndpointSuffix=core.windows.net')]",
                 "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(parameters('storageAccountName'), '2019-04-01').keys[0].value, ';EndpointSuffix=core.windows.net')]",
                 "WEBSITE_CONTENTSHARE": "[tolower(concat(parameters('appName'), 'contentshare'))]",
-                "logOutputContainer": "pipelinerunlogs",
-                "azureDevOpsOrg": "Hoppy7",
-                "azureDevOpsProject": "Azure",
+                "logOutputContainer": "[parameters('blobContainerName')]",
+                "azureDevOpsOrg": "[parameters('azureDevOpsOrg')]",
+                "azureDevOpsProject": "[parameters('azureDevOpsProject')]",
                 "azureDevOpsPat": "[concat('@Microsoft.KeyVault(SecretUri=', parameters('adoPatKeyvaultSecretUri'), ')')]"
             }
         }
