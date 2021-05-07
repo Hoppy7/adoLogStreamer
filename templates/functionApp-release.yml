@@ -34,7 +34,7 @@ parameters:
           - Incremental
 
 stages:
-  - stage: Release_${{ parameters.environmentName }}
+  - stage: ${{ parameters.environmentName }}
     condition: succeeded()
     jobs:
       - deployment: ${{ parameters.environmentName }}
@@ -57,7 +57,7 @@ stages:
                   templateLocation: Linked artifact
                   csmFile: $(Pipeline.Workspace)/${{ parameters.armTemplate }}
                   overrideParameters: 
-                    -appName ${{ parameters.functionAppName }} -storageAccountName ${{ parameters.functionAppName }} -blobContainerName ${{ parameters.storageAccountContainer }} -queueName ${{ parameters.storageAccountQueue }} -azureDevOpsOrg ${{ parameters.azureDevOpsOrg }} -azureDevOpsProject ${{ parameters.azureDevOpsProject }} -adoPatKeyvaultSecretUri ${{ parameters.adoPatKeyvaultSecretUri }} 
+                    -appName ${{ parameters.functionAppName }} -storageAccountName ${{ parameters.storageAccountName }} -blobContainerName ${{ parameters.storageAccountContainer }} -queueName ${{ parameters.storageAccountQueue }} -azureDevOpsOrg ${{ parameters.azureDevOpsOrg }} -azureDevOpsProject ${{ parameters.azureDevOpsProject }} -adoPatKeyvaultSecretUri ${{ parameters.adoPatKeyvaultSecretUri }} 
                   deploymentMode: ${{ parameters.deploymentMode }}
   
               - task: AzureFunctionApp@1
