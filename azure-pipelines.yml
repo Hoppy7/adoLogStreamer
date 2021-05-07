@@ -60,7 +60,7 @@ stages:
 
 - template: templates/functionApp-release.yml
   parameters:
-    environmentName: FunctionApp-Release
+    environmentName: FunctionAppRelease
     agentImage: $(agentImage)
     azureSubscription: $(azureSubscription)
     resourceGroupName: $(resourceGroupName)
