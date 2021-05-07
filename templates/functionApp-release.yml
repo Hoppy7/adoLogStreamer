@@ -4,8 +4,6 @@ parameters:
     - name: agentImage
       type: string
       default: windows-2019
-    - name: functionAppName
-      type: string
     - name: azureSubscription
       type: string
     - name: resourceGroupName
@@ -13,6 +11,20 @@ parameters:
     - name: location
       type: string
     - name: armTemplate
+      type: string
+    - name: functionAppName
+      type: string
+    - name: azureDevOpsOrg
+      type: string
+    - name: azureDevOpsProject
+      type: string
+    - name: adoPatKeyvaultSecretUri
+      type: string
+    - name: storageAccountName
+      type: string
+    - name: storageAccountContainer
+      type: string
+    - name: storageAccountQueue
       type: string
     - name: deploymentMode
       type: string
@@ -44,6 +56,8 @@ stages:
                   location: ${{ parameters.location }}
                   templateLocation: Linked artifact
                   csmFile: $(Pipeline.Workspace)/${{ parameters.armTemplate }}
+                  overrideParameters: 
+                    -appName ${{ parameters.functionAppName }} -storageAccountName ${{ parameters.functionAppName }} -blobContainerName ${{ parameters.storageAccountContainer }} -queueName ${{ parameters.storageAccountQueue }} -azureDevOpsOrg ${{ parameters.azureDevOpsOrg }} -azureDevOpsProject ${{ parameters.azureDevOpsProject }} -adoPatKeyvaultSecretUri ${{ parameters.adoPatKeyvaultSecretUri }} 
                   deploymentMode: ${{ parameters.deploymentMode }}
   
               - task: AzureFunctionApp@1
@@ -56,5 +70,3 @@ stages:
                   appName: ${{ parameters.functionAppName }}
                   package: $(Pipeline.Workspace)/**/*.zip
                   deploymentMethod: zipDeploy
-              #     deployToSlotOrASE: true
-              #     slotName: stage

@@ -12,14 +12,21 @@ trigger:
 variables:
   agentImage: windows-2019
 
-  armTemplate: drop/armTemplates/deploy.json
+  # arm deployment
   azureSubscription: RossHopkinsIC
-  resourceGroupName: rg-ado-logstreamer
+  resourceGroupName: RG-ADO-LogStreamer
   location: westus2
-  functionAppName: adoLogStreamer
+  armTemplate: drop/armTemplates/deploy.json
 
-  # used by streamLogs template
-  storageAccountResourceId: /subscriptions/0aba2ef8-fd83-4066-abf0-8f5be9c9ad8c/resourceGroups/RG-ADO-LogStreamer/providers/Microsoft.Storage/storageAccounts/adologstreamerstg1
+  # function app
+  functionAppName: adoLogStreamer
+  azureDevOpsOrg: Hoppy7
+  azureDevOpsProject: Azure
+  adoPatKeyvaultSecretUri: https://kv-rohopkin.vault.azure.net/secrets/adoLogStreamerPat/
+
+  # storage account
+  storageAccountName: adologstreamerstg1
+  storageAccountContainer: pipelinerunlogs
   storageAccountQueue: pipelineruns
 
 stages:
@@ -53,17 +60,24 @@ stages:
 
 - template: templates/functionApp-release.yml
   parameters:
-    environmentName: FunctionApp
+    environmentName: FunctionApp-Release
     agentImage: $(agentImage)
-    functionAppName: $(functionAppName)
     azureSubscription: $(azureSubscription)
     resourceGroupName: $(resourceGroupName)
     location: $(location)
     armTemplate: $(armTemplate)
+    functionAppName: $(functionAppName)
+    azureDevOpsOrg: $(azureDevOpsOrg)
+    azureDevOpsProject: $(azureDevOpsProject)
+    adoPatKeyvaultSecretUri: $(adoPatKeyvaultSecretUri)
+    storageAccountName: $(storageAccountName)
+    storageAccountContainer: $(storageAccountContainer)
+    storageAccountQueue: $(storageAccountQueue)
     deploymentMode: Complete
 
 - template: templates/streamLogs.yml
   parameters:
     azureSubscription: $(azureSubscription)
-    storageAccountResourceId: $(storageAccountResourceId)
+    storageAccountName: $(storageAccountName)
+    storageAccountRG: $(resourceGroupName)
     storageAccountQueue: $(storageAccountQueue)
