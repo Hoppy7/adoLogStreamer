@@ -26,16 +26,16 @@
       
   3.  Update the [pipeline's variables](https://github.com/Hoppy7/adoLogStreamer/blob/main/azure-pipelines.yml#L12-L30) listed in the below table with your own values
 
-      Variable Name | Value Description | Example
-      ------ | ------ | ------
-      azureSubscription | The name of the service connection the pipeline will leverage to deploy the arm template | RossHopkinsIC
-      resourceGroupName | The name of the resource group the function app and storage account will be deployed | RG-ADO-LogStreamer
-      location | The region the Azure resource group and resources will be deployed | westus2
-      functionAppName | The name of the Azure function app.  **Note this must be a globally unique resource name** | adologstreamer
-      azureDevOpsOrg | The name of the Azure DevOps Organization | Hoppy7
-      azureDevOpsProject | The name of the Azure DevOps Project | Azure
-      adoPatKeyvaultSecretUri | The uri of the secret created from #2 | https://{vaultName}.vault.azure.net/secrets/adoLogStreamerPat/
-      storageAccountName | The name of the storage account used by the function app to store logs.  **Note this must be a globally unique resource name** | adologstreamerstg1
+      Variable Name | Value Description
+      ------ | ------
+      azureSubscription | The name of the service connection the pipeline will leverage to deploy the arm template
+      resourceGroupName | The name of the resource group the function app and storage account will be deployed
+      location | The region the Azure resource group and resources will be deployed
+      functionAppName | The name of the Azure function app.  **Note this must be a globally unique resource name**
+      azureDevOpsOrg | The name of the Azure DevOps Organization
+      azureDevOpsProject | The name of the Azure DevOps Project
+      adoPatKeyvaultSecretUri | The uri of the secret created from #2 - https://{vaultName}.vault.azure.net/secrets/adoLogStreamerPat/
+      storageAccountName | The name of the storage account used by the function app to store logs.  **Note this must be a globally unique resource name**
 
   4.  Run the pipeline to deploy the arm template and the function app package
 
