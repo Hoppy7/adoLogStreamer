@@ -3,7 +3,7 @@
 [![Build Status](https://dev.azure.com/hoppy7/Azure/_apis/build/status/Hoppy7.adoLogStreamer?branchName=main)](https://dev.azure.com/hoppy7/Azure/_build/latest?definitionId=12&branchName=main)
 
 ## Overview
-Azure DevOps currently offers no out-of-the-box functionality to stream pipeline logs to blob storage/Log Analytics/Event Hub/etc, and this sample can be used to fill in the gaps. 
+Azure DevOps currently offers no out-of-the-box functionality to stream pipeline logs to external endpoints and this sample can be used to fill in the gaps. This project streams ADO pipeline logs to Azure blob storage.
 
 <br>
 
